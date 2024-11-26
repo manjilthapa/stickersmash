@@ -2,15 +2,20 @@ import { View, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import ImageViewer from "@/components/ImageViewer";
 import Button from "@/components/Button";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import CircleButton from "@/components/CircleButton";
 import IconButton from "@/components/IconButton";
 import EmojiPicker from "@/components/EmojiPicker";
 import { ImageSource } from "expo-image";
 import EmojiList from "@/components/EmojiList";
 import EmojiSticker from "@/components/EmojiSticker";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as MediaLibrary from "expo-media-library";
+import ViewShot, { captureRef } from "react-native-view-shot";
 
 export default function Index() {
+  const imageRef = useRef<View>(null);
+  const [status, requestPermission] = MediaLibrary.usePermissions();
   const [selectedImage, setSelectedImage] = useState<string | undefined>(
     undefined
   );
@@ -20,6 +25,10 @@ export default function Index() {
   const [pickedEmoji, setPickedEmoji] = useState<ImageSource | undefined>(
     undefined
   );
+
+  if (status === null) {
+    requestPermission();
+  }
 
   const pickImageAsync = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -45,18 +54,30 @@ export default function Index() {
   const onModalClose = () => {
     setIsModalVisible(false);
   };
-  const onSaveImageSync = () => {};
+  const onSaveImageSync = useCallback(async () => {
+    try {
+      console.log("image", imageRef.current);
+      const localUri = await captureRef(imageRef);
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      if (localUri) alert("Saved");
+    } catch (e) {
+      console.log("error", e);
+    }
+  }, [imageRef]);
+
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <View style={styles.imageContainer}>
-        <ImageViewer
-          imageSource={{
-            uri: selectedImage || "https://picsum.photos/seed/696/3000/2000",
-          }}
-        />
-        {pickedEmoji && (
-          <EmojiSticker imageSize={40} stickerSource={pickedEmoji} />
-        )}
+        <View ref={imageRef} collapsable={false}>
+          <ImageViewer
+            imageSource={{
+              uri: selectedImage || "https://picsum.photos/seed/696/3000/2000",
+            }}
+          />
+          {pickedEmoji && (
+            <EmojiSticker imageSize={40} stickerSource={pickedEmoji} />
+          )}
+        </View>
       </View>
       {showAppOptions ? (
         <View style={styles.optionsContainer}>
@@ -86,7 +107,7 @@ export default function Index() {
       <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
         <EmojiList onCloseModal={onModalClose} onSelect={setPickedEmoji} />
       </EmojiPicker>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
